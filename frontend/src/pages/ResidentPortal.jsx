@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ResidentBot from '../components/ResidentBot';
 
 export default function ResidentPortal({ onLogout }) {
   const [, setToast] = useState(false);
@@ -250,6 +251,7 @@ export default function ResidentPortal({ onLogout }) {
           </div>
         </div>
       </main>
+      <ResidentBot/>
     </div>
   );
 }
