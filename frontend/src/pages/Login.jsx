@@ -11,28 +11,129 @@ export default function Login({ onLogin }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  const [loginId, setLoginId] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  const [assignedId, setAssignedId] = useState('');
+  const [tempPasscode, setTempPasscode] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [age, setAge] = useState('');
+  const [phone, setPhone] = useState('');
+  const [flatNumber, setFlatNumber] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
   const handleLogin = async (e) => {
     e.preventDefault();
-    setTimeout(() => {
-      onLogin(role);
-    }, 500);
+    setError('');
+    setSuccess('');
+
+    let endpoint = '';
+
+    if (role === 'Resident') {
+      endpoint = '/auth/login';
+    } else if (role === 'Security') {
+      endpoint = '/auth/security/login';
+    } else {
+      endpoint = '/auth/admin/login';
+    }
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8000${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          id: loginId,
+          password: loginPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Login failed');
+      }
+
+      setSuccess(data.message);
+
+      localStorage.setItem("user", JSON.stringify(data));
+
+      setTimeout(() => {
+        onLogin(role);
+      }, 1000);
+
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
-  const handleSignup = (e) => {
-    e.preventDefault();
-    const p1 = e.target.newPwd.value;
-    const p2 = e.target.confirmPwd.value;
 
-    if (p1 !== p2) {
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (newPassword !== confirmPassword) {
       setError('Passwords do not match.');
-      setSuccess('');
+      return;
+    }
+
+    let endpoint = '';
+    let payload = {};
+
+    if (signupRole === 'Resident') {
+      endpoint = '/auth/initialize';
+
+      payload = {
+        id: assignedId,
+        flat_number: flatNumber,
+        temp_passcode: tempPasscode,
+        full_name: fullName,
+        age: Number(age),
+        phone: phone,
+        password: newPassword,
+        confirm_password: confirmPassword
+      };
     } else {
-      setError('');
-      setSuccess('Registration successful! Routing to login...');
+      endpoint = '/auth/security/initialize';
+
+      payload = {
+        id: assignedId,
+        temp_passcode: tempPasscode,
+        full_name: fullName,
+        age: Number(age),
+        phone: phone,
+        password: newPassword,
+        confirm_password: confirmPassword
+      };
+    }
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8000${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Activation failed');
+      }
+
+      setSuccess(data.message);
+
       setTimeout(() => {
-        setSuccess('');
         setView('signin');
+        setSuccess('');
       }, 1500);
+
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -66,12 +167,26 @@ export default function Login({ onLogin }) {
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">User ID</label>
-                <input type="text" placeholder="Enter your ID" required className="w-full px-4 py-3 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition" />
+                <input
+                  type="text"
+                  value={loginId}
+                  onChange={(e) => setLoginId(e.target.value)}
+                  placeholder="Enter your ID"
+                  required
+                  className="w-full px-4 py-3 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+                />
               </div>
 
               <div className="relative">
                 <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
-                <input type={showLoginPwd ? "text" : "password"} placeholder="••••••••" required className="w-full px-4 py-3 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition pr-12" />
+                <input
+                  type={showLoginPwd ? "text" : "password"}
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-4 py-3 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition pr-12"
+                />
                 <button
                   type="button"
                   onClick={() => setShowLoginPwd(!showLoginPwd)}
@@ -80,7 +195,17 @@ export default function Login({ onLogin }) {
                   {showLoginPwd ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                 </button>
               </div>
+              {error && (
+                <div className="text-red-400 text-xs text-center p-2 bg-red-900/30 border border-red-800 rounded">
+                  {error}
+                </div>
+              )}
 
+              {success && (
+                <div className="text-green-400 text-xs text-center p-2 bg-green-900/30 border border-green-800 rounded">
+                  {success}
+                </div>
+              )}
               <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg mt-4 transition shadow-lg">
                 Sign In
               </button>
@@ -113,40 +238,91 @@ export default function Login({ onLogin }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Assigned ID</label>
-                  <input type="text" placeholder="RES142" required className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition" />
+                  <input
+                    type="text"
+                    value={assignedId}
+                    onChange={(e) => setAssignedId(e.target.value)}
+                    placeholder="ID"
+                    required
+                    className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Temp Passcode</label>
-                  <input type="text" placeholder="Passcode" required className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition" />
+                  <input
+                    type="text"
+                    value={tempPasscode}
+                    onChange={(e) => setTempPasscode(e.target.value)}
+                    placeholder="Ex: ab12cd"
+                    required
+                    className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition"
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">Full Name</label>
-                <input type="text" placeholder="Jane Doe" required className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition" />
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Ex: Jane Doe"
+                  required
+                  className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Age</label>
-                  <input type="number" min="18" placeholder="Age" required className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition" />
+                  <input
+                    type="number"
+                    min="18"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    placeholder="Age"
+                    required
+                    className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Phone Number</label>
-                  <input type="tel" placeholder="Phone" required className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition" />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Phone"
+                    required
+                    className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition"
+                  />
                 </div>
               </div>
 
               {signupRole === 'Resident' && (
                 <div className="animate-fadeIn">
                   <label className="block text-xs font-medium text-gray-400 mb-1">Flat Number</label>
-                  <input type="text" placeholder="A-402" required className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition" />
+                  <input
+                    type="text"
+                    value={flatNumber}
+                    onChange={(e) => setFlatNumber(e.target.value)}
+                    placeholder="Ex: 402"
+                    required
+                    className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition"
+                  />
                 </div>
               )}
 
               <div className="relative pt-2 border-t border-gray-800/50">
                 <label className="block text-xs font-medium text-gray-400 mb-1">New Password</label>
-                <input name="newPwd" type={showNewPwd ? "text" : "password"} placeholder="••••••••" required className="w-full px-4 py-3 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition pr-12" />
+                <input
+                  name="newPwd"
+                  type={showNewPwd ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-4 py-3 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition pr-12"
+                />
                 <button
                   type="button"
                   onClick={() => setShowNewPwd(!showNewPwd)}
@@ -158,7 +334,15 @@ export default function Login({ onLogin }) {
 
               <div className="relative">
                 <label className="block text-xs font-medium text-gray-400 mb-1">Confirm Password</label>
-                <input name="confirmPwd" type={showConfirmPwd ? "text" : "password"} placeholder="••••••••" required className="w-full px-4 py-3 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition pr-12" />
+                <input
+                  name="confirmPwd"
+                  type={showConfirmPwd ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-4 py-3 bg-gray-950 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition pr-12"
+                />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPwd(!showConfirmPwd)}
