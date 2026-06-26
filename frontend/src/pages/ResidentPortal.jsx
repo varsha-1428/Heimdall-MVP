@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ResidentBot from '../components/ResidentBot';
 
 export default function ResidentPortal({ onLogout }) {
@@ -10,7 +10,12 @@ export default function ResidentPortal({ onLogout }) {
   const [cardReported, setCardReported] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [vehicles, setVehicles] = useState([]);
+  const [profile, setProfile] = useState(null);
   const [vehicleInput, setVehicleInput] = useState("");
+  const [qrPassId, setQrPassId] = useState(null);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const user = JSON.parse(localStorage.getItem("user"));
+  const residentId = user?.resident?.id;
   const today = new Date().toISOString().split("T")[0];
 
   const triggerAlert = () => {
@@ -25,36 +30,106 @@ export default function ResidentPortal({ onLogout }) {
     e.target.reset();
   };
 
-  const handleGuestSubmit = (e) => {
+  const handleGuestSubmit = async (e) => {
     e.preventDefault();
+
+    const guestName = e.target.guestName.value;
     const entryDate = e.target.entryDate.value;
+    const duration = Number(e.target.duration.value);
 
     if (entryDate < today) {
       alert("Entry date cannot be in the past.");
       return;
     }
 
-    setGuestSuccess(true);
-    setTimeout(() => setGuestSuccess(false), 3000);
-    e.target.reset();
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/visitor/guest",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            resident_id: residentId,
+            guest_name: guestName,
+            entry_date: entryDate,
+            duration_days: duration
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail);
+      }
+
+      setQrPassId(data.passId);
+      setShowQrModal(true);
+      setGuestSuccess(true);
+
+      setTimeout(() => setGuestSuccess(false), 3000);
+      e.target.reset();
+
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
-  const handleGroupSubmit = (e) => {
+  const handleGroupSubmit = async (e) => {
     e.preventDefault();
+
+    const groupName = e.target.groupName.value;
     const entryDate = e.target.entryDate.value;
+    const duration = Number(e.target.duration.value);
+    const limit = Number(e.target.limit.value);
 
     if (entryDate < today) {
       alert("Entry date cannot be in the past.");
       return;
     }
 
-    setGroupSuccess(true);
-    setTimeout(() => setGroupSuccess(false), 3000);
-    e.target.reset();
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/visitor/group",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            resident_id: residentId,
+            group_name: groupName,
+            entry_date: entryDate,
+            duration_days: duration,
+            visitor_limit: limit
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail);
+      }
+
+      setQrPassId(data.passId);
+      setShowQrModal(true);
+      setGroupSuccess(true);
+
+      setTimeout(() => setGroupSuccess(false), 3000);
+      e.target.reset();
+
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
-  const handleWorkerSubmit = (e) => {
+  const handleWorkerSubmit = async (e) => {
     e.preventDefault();
+
+    const workerName = e.target.workerName.value;
     const start = e.target.startTime.value;
     const end = e.target.endTime.value;
 
@@ -63,29 +138,213 @@ export default function ResidentPortal({ onLogout }) {
       return;
     }
 
-    setWorkerSuccess(true);
-    setTimeout(() => setWorkerSuccess(false), 3000);
-    e.target.reset();
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/visitor/worker",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            resident_id: residentId,
+            worker_name: workerName,
+            start_time: start,
+            end_time: end
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail);
+      }
+
+      setQrPassId(data.worker_id);
+      setShowQrModal(true);
+      setWorkerSuccess(true);
+
+      setTimeout(() => setWorkerSuccess(false), 3000);
+      e.target.reset();
+
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
-  const addVehicle = (e) => {
+  const downloadQr = async () => {
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/qr/${qrPassId}`
+      );
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${qrPassId}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Download failed");
+    }
+  };
+
+  const handleDeliverySubmit = async (e) => {
     e.preventDefault();
+
+    const deliveryService = e.target.deliveryService.value;
+    const arrivalWindow = e.target.arrivalWindow.value;
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/visitor/delivery",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            resident_id: residentId,
+            delivery_service: deliveryService || null,
+            arrival_window: arrivalWindow
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail);
+      }
+
+      setDeliverySuccess(true);
+      setTimeout(() => setDeliverySuccess(false), 3000);
+
+      e.target.reset();
+
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const addVehicle = async (e) => {
+    e.preventDefault();
+
     const vehicle = vehicleInput.trim().toUpperCase();
 
     if (!vehicle) return;
 
-    if (vehicles.includes(vehicle)) {
-      alert("Vehicle already registered.");
-      return;
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/resident/add-vehicle",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            resident_id: residentId,
+            plate_number: vehicle
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail);
+      }
+
+      setVehicles([...vehicles, data.plate_number]);
+      setVehicleInput("");
+
+    } catch (err) {
+      alert(err.message);
     }
-
-    setVehicles([...vehicles, vehicle]);
-    setVehicleInput("");
   };
 
-  const removeVehicle = (vehicle) => {
-    setVehicles(vehicles.filter(v => v !== vehicle));
+  const handleLostCard = async () => {
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/resident/report-lost-card/${residentId}`,
+        {
+          method: "POST"
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail);
+      }
+
+      setCardReported(true);
+      alert(data.message);
+
+    } catch (err) {
+      alert(err.message);
+    }
   };
+
+  const removeVehicle = async (vehicle) => {
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/resident/remove-vehicle",
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            resident_id: residentId,
+            plate_number: vehicle
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail);
+      }
+
+      setVehicles(vehicles.filter(v => v !== vehicle));
+
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await fetch(
+          `http://127.0.0.1:8000/resident/profile/${residentId}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail);
+        }
+
+        setProfile(data);
+        setVehicles(data.vehicles || []);
+      } catch (err) {
+        console.error("Profile fetch failed:", err);
+      }
+    };
+
+    if (residentId) {
+      fetchProfile();
+    }
+  }, [residentId]);
 
   return (
     <div className="bg-gray-950 min-h-screen font-sans text-gray-200 overflow-x-hidden w-full pb-10">
@@ -113,12 +372,42 @@ export default function ResidentPortal({ onLogout }) {
               <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
               <span>Resident Profile</span>
             </h2>
-            
+
             <div className="space-y-4 text-sm text-gray-300">
-              <div className="flex justify-between border-b border-gray-800 pb-2"><span className="text-gray-500">Full Name</span> <span className="font-bold text-white">John Doe</span></div>
-              <div className="flex justify-between border-b border-gray-800 pb-2"><span className="text-gray-500">Resident ID</span> <span className="font-mono text-gray-400">res_142</span></div>
-              <div className="flex justify-between border-b border-gray-800 pb-2"><span className="text-gray-500">Flat Number</span> <span className="font-bold text-blue-400">A-402</span></div>
-              <div className="flex justify-between border-b border-gray-800 pb-2"><span className="text-gray-500">Phone Number</span> <span>+1 (555) 123-4567</span></div>
+              <div className="flex justify-between border-b border-gray-800 pb-2">
+                <span className="text-gray-500">Full Name</span>
+                <span className="font-bold text-white">
+                  {profile?.full_name || "Loading..."}
+                </span>
+              </div>
+
+              <div className="flex justify-between border-b border-gray-800 pb-2">
+                <span className="text-gray-500">Resident ID</span>
+                <span className="font-mono text-gray-400">
+                  {profile?.id || "Loading..."}
+                </span>
+              </div>
+
+              <div className="flex justify-between border-b border-gray-800 pb-2">
+                <span className="text-gray-500">Flat Number</span>
+                <span className="font-bold text-blue-400">
+                  {profile?.flat_number || "Loading..."}
+                </span>
+              </div>
+
+              <div className="flex justify-between border-b border-gray-800 pb-2">
+                <span className="text-gray-500">Phone Number</span>
+                <span>
+                  {profile?.phone || "Loading..."}
+                </span>
+              </div>
+
+              <div className="flex justify-between border-b border-gray-800 pb-2">
+                <span className="text-gray-500">Badge ID</span>
+                <span className="font-mono text-cyan-400">
+                  {profile?.badge || "Loading..."}
+                </span>
+              </div>
             </div>
 
             <div className="mt-6 pt-4 border-t border-gray-800">
@@ -127,7 +416,7 @@ export default function ResidentPortal({ onLogout }) {
                 <input
                   value={vehicleInput}
                   onChange={(e) => setVehicleInput(e.target.value)}
-                  placeholder="TS09AB1234"
+                  placeholder="Enter your vehicle number"
                   className="flex-1 px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white"
                 />
                 <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-lg">Add</button>
@@ -166,7 +455,7 @@ export default function ResidentPortal({ onLogout }) {
               <form className="space-y-4" onSubmit={handleGuestSubmit}>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Guest Full Name</label>
-                  <input type="text" name="guestName" placeholder="Jane Smith" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                  <input type="text" name="guestName" placeholder="Ex: Jane Smith" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -175,7 +464,7 @@ export default function ResidentPortal({ onLogout }) {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1">Duration (Days)</label>
-                    <input type="number" name="duration" min="1" placeholder="1" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                    <input type="number" name="duration" min="1" placeholder="Ex: 1" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
                   </div>
                 </div>
                 {guestSuccess && <div className="text-green-400 text-xs text-center p-2 bg-green-900/30 border border-green-800 rounded">Single QR Pass Generated!</div>}
@@ -189,7 +478,7 @@ export default function ResidentPortal({ onLogout }) {
               <form className="space-y-4" onSubmit={handleGroupSubmit}>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Event / Group Name</label>
-                  <input type="text" name="groupName" placeholder="Birthday Party" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
+                  <input type="text" name="groupName" placeholder="Ex: Birthday Party" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -198,12 +487,19 @@ export default function ResidentPortal({ onLogout }) {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1">Duration (Days)</label>
-                    <input type="number" name="duration" min="1" placeholder="1" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
+                    <input type="number" name="duration" min="1" placeholder="Ex: 1" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Number of Visitors</label>
-                  <input type="number" name="visitorsCount" min="2" placeholder="15" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
+                  <input
+                    type="number"
+                    name="limit"
+                    min="2"
+                    placeholder="Ex: 15"
+                    required
+                    className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
+                  />
                 </div>
                 {groupSuccess && <div className="text-green-400 text-xs text-center p-2 bg-green-900/30 border border-green-800 rounded">Group QR Master Pass Generated!</div>}
                 <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition shadow-lg mt-2">Generate Group QR</button>
@@ -218,7 +514,13 @@ export default function ResidentPortal({ onLogout }) {
               <form className="space-y-4" onSubmit={handleWorkerSubmit}>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Worker Name / Role</label>
-                  <input type="text" name="workerRole" placeholder="Plumber, Electrician" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 transition" />
+                  <input
+                    type="text"
+                    name="workerName"
+                    placeholder="Ex: Plumber, Electrician"
+                    required
+                    className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Valid Timeslot (Today)</label>
@@ -236,16 +538,16 @@ export default function ResidentPortal({ onLogout }) {
             {/* Delivery Approval */}
             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg">
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Delivery Approval</h2>
-              <form className="space-y-4" onSubmit={(e) => handleFormSubmit(e, setDeliverySuccess)}>
+              <form className="space-y-4" onSubmit={handleDeliverySubmit}>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Delivery Service / Name <span className="text-gray-600">(Optional)</span></label>
-                  <input type="text" name="deliveryService" placeholder="Amazon, FedEx" className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+                  <input type="text" name="deliveryService" placeholder="Ex: Amazon, FedEx" className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Expected Arrival Window</label>
                   <select name="arrivalWindow" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition appearance-none">
                     <option value="" disabled selected>Select estimated time...</option>
-                    <option value="1h">Within the next 1 Hour</option>
+                    <option value="1hour">Within the next 1 Hour</option>
                     <option value="morning">Today Morning (8 AM - 12 PM)</option>
                     <option value="afternoon">Today Afternoon (12 PM - 4 PM)</option>
                     <option value="evening">Today Evening (4 PM - 8 PM)</option>
@@ -263,12 +565,12 @@ export default function ResidentPortal({ onLogout }) {
                 <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Alerts Inbox</h2>
                 <span className="flex h-3 w-3 relative"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
               </div>
-              
+
               {/* 🛠️ Capped height and custom dark scrollbars applied below */}
-              <div 
-                    className="p-4 space-y-3 overflow-y-auto h-[500px]" 
-                    style={{ scrollbarWidth: 'thin', scrollbarColor: '#374151 transparent' }}
-                  >
+              <div
+                className="p-4 space-y-3 overflow-y-auto h-[500px]"
+                style={{ scrollbarWidth: 'thin', scrollbarColor: '#374151 transparent' }}
+              >
                 <div className="bg-yellow-950/30 border-l-4 border-yellow-500 p-3 rounded-r-lg">
                   <span className="text-xs font-bold text-yellow-400 uppercase">MEDIUM SEVERITY</span>
                   <p className="text-sm text-gray-300 mt-1">Tailgating anomaly recorded during entry. Please ensure doors close securely.</p>
@@ -276,8 +578,8 @@ export default function ResidentPortal({ onLogout }) {
               </div>
             </div>
 
-            <button 
-              onClick={() => setCardReported(true)} 
+            <button
+              onClick={handleLostCard}
               disabled={cardReported}
               className={`w-full font-bold py-4 px-4 rounded-xl transition shadow-lg ${cardReported ? 'bg-gray-800 text-gray-500 border-gray-700' : 'bg-red-900/80 hover:bg-red-800 text-red-100 border border-red-700'}`}>
               {cardReported ? 'Card Locked & Security Notified' : 'Report Lost Card'}
@@ -331,7 +633,46 @@ export default function ResidentPortal({ onLogout }) {
           </div>
         </div>
       </main>
-      <ResidentBot/>
+      <ResidentBot />
+
+      {showQrModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-gray-900 p-6 rounded-xl border border-gray-700 text-center relative">
+            <button
+              onClick={() => setShowQrModal(false)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+
+            <h2 className="text-white text-xl font-bold mb-4">
+              QR Pass Generated
+            </h2>
+
+            <img
+              src={`http://127.0.0.1:8000/qr/${qrPassId}`}
+              alt="QR Code"
+              className="w-64 h-64 mx-auto rounded-lg bg-white p-2"
+            />
+
+            <p className="text-cyan-400 font-mono mt-4 text-lg">
+              {qrPassId.startsWith("VIS-")
+                ? `Guest ID: ${qrPassId}`
+                : qrPassId.startsWith("GRP-")
+                  ? `Group ID: ${qrPassId}`
+                  : `Worker ID: ${qrPassId}`}
+            </p>
+
+            <button
+              onClick={downloadQr}
+              className="mt-4 bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg text-white font-semibold"
+            >
+              Download QR
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -39,6 +39,7 @@ async def get_resident_profile(resident_id: str):
         "id": resident["id"],
         "flat_number": resident["flat_number"],
         "phone": resident["phone"],
+        "badge": resident.get("badge", "Not Assigned"),
         "vehicles": resident.get("vehicles", [])
     }
 
