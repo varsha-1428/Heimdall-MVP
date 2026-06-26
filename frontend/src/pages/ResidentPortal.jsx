@@ -77,6 +77,7 @@ export default function ResidentPortal({ onLogout }) {
     }
   };
 
+  {/* Group Submission */ }
   const handleGroupSubmit = async (e) => {
     e.preventDefault();
 
