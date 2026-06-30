@@ -2,8 +2,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from database import db
+<<<<<<< HEAD:backend/routes/resident.py
 from schema import ResidentRequest
 from generator import generate_password
+=======
+from datetime import datetime, timedelta
+>>>>>>> 09c0893bf5c03533042c6b83fd8d477b0b196f34:backend_part1/routes/resident.py
 
 router = APIRouter()
 
@@ -155,11 +159,20 @@ async def report_lost_card(resident_id: str):
         }
     )
 
+    await db.security_alerts.insert_one({
+        "type": "lost_card",
+        "resident_id": resident_id,
+        "badge": resident["badge"],
+        "message": "Lost card reported",
+        "resolved": False
+    })
+
     return {
         "message": "Card blocked successfully. Security notified."
     }
 
 
+<<<<<<< HEAD:backend/routes/resident.py
 # ---------- Generate Resident Identities (Admin) ----------
 @router.post("/generate-identities")
 async def generate_identities(data: ResidentRequest):
@@ -204,3 +217,26 @@ async def generate_identities(data: ResidentRequest):
         })
 
     return output
+=======
+@router.get("/announcements")
+async def get_recent_announcements():
+
+    cutoff = datetime.now() - timedelta(hours=24)
+
+    announcements = await db.announcements_collection.find({
+        "created_at": {"$gte": cutoff}
+    }).sort("created_at", -1).to_list(length=50)
+
+    result = []
+
+    for ann in announcements:
+        result.append({
+            "title": ann["title"],
+            "message": ann["message"],
+            "created_at": ann["created_at"]
+        })
+
+    return {
+        "announcements": result
+    }
+>>>>>>> 09c0893bf5c03533042c6b83fd8d477b0b196f34:backend_part1/routes/resident.py
