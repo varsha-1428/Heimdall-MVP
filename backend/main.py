@@ -11,6 +11,7 @@ from routes.resident import router as resident_router
 from routes.security_guard import router as security_guard_router
 from routes.announcement import router as announcement_router
 from routes.community_directory import router as community_router
+from routes import profile
 
 # Security Dashboard routes
 from routes.security import router as security_router
@@ -88,6 +89,8 @@ app.include_router(
     prefix="/community",
     tags=["Community"]
 )
+
+app.include_router(profile.router)
 
 @app.get("/")
 async def root():
